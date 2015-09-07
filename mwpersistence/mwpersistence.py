@@ -3,9 +3,12 @@ This script provides access to a set of utilities for extracting content
 persistence-based measurements from MediaWiki XML dumps.
 
 * dump2diffs -- (1) Converts XML dumps to diff information (XML --> JSON)
-* diffs2persistence -- (2) Converts diff information to token persistence information (JSON --> JSON)
-* persistence2stats -- (3) Converts token persistence information to revision-level stats (JSON --> JSON)
-* dump2stats -- (1,2,3) Full pipeline. From XML dumps to revision-level stats (XML --> JSON)
+* diffs2persistence -- (2) Converts diff information to token persistence
+                           information (JSON --> JSON)
+* persistence2stats -- (3) Converts token persistence information to
+                           revision-level stats (JSON --> JSON)
+* dump2stats -- (1,2,3) Full pipeline. From XML dumps to revision-level
+                        stats (XML --> JSON)
 
 Usage:
     mwpersistence -h | --help

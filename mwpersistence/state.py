@@ -1,8 +1,18 @@
+import logging
 from hashlib import sha1
 
 import mwreverts
 
-from .tokens import Token
+from .token import Token
+
+logger = logging.getLogger(__name__)
+
+
+class Version:
+    __slots__ = ('tokens', )
+
+    def __init__(self, tokens=None):
+        self.tokens = tokens
 
 
 class State:
@@ -81,6 +91,7 @@ class DiffState:
                             "process() method.".format(type(diff_engine)))
 
         self.diff_engine = diff_engine
+        self.diff_processor = self.diff_engine.processor()
 
         # Either pass a detector or the revert radius so I can make one
         if revert_detector is None and revert_radius is None:
@@ -93,7 +104,7 @@ class DiffState:
             self.revert_detector = revert_detector
 
         # Stores the last tokens
-        self.last = None
+        self.last = Version()
 
     def update(self, text, revision=None):
         """
@@ -126,16 +137,15 @@ class DiffState:
 
         revert = self.revert_detector.process(checksum, current_version)
         if revert is not None:  # Revert
-
-            # Empty words.
-            tokens_added = []
-            tokens_removed = []
-
+            logger.debug("Revert detected between {0} and {1}"
+                         .format(revert.reverting, revert.reverted_to))
             # Extract reverted_to revision
             current_version.tokens = revert.reverted_to.tokens
 
-            # Update diff_engine state
-            self.diff_engine.process(last_tokens=current_version.tokens)
+            # Update diff_processor state
+            self.diff_processor.update(last_tokens=current_version.tokens)
+
+            transition = current_version.tokens, [], []
 
         else:
 
@@ -146,12 +156,14 @@ class DiffState:
             # Diffs usually run in O(n^2) -- O(n^3) time and most tokenizers
             # produce a lot of tokens.
             operations, _, current_tokens = \
-                self.diff_engine.process(last_tokens=current_version.tokens,
-                                         token_class=Token)
+                self.diff_processor.process(text, token_class=Token)
+
+            operations = list(operations)
+            print(operations)
 
             transition = apply_operations(operations, self.last.tokens or [],
                                           current_tokens)
-            current_version.tokens, _, _ = transition[0]
+            current_version.tokens, _, _ = transition
 
         # Record persistence
         for t in current_version.tokens:
@@ -173,19 +185,15 @@ def apply_operations(operations, a, b):
 
         if op.name in ("replace", "insert"):
 
-            new_tokens = b[op.b1:b2]
+            new_tokens = b[op.b1:op.b2]
             tokens.extend(new_tokens)
             tokens_added.extend(new_tokens)
 
-        if op.name in ("replace", "delete")
-            tokens_removed.extend(a[op['a1']:op['a2']])
+        if op.name in ("replace", "delete"):
+            tokens_removed.extend(a[op.a1:op.a2])
 
         elif op.name == "equal":
-            tokens.extend(a[op['a1']:op['a2']])
-
-        else:
-            raise RuntimeError("Encounted an unrecognized operation: {0}"
-                               .format(repr(op)))
+            tokens.extend(a[op.a1:op.a2])
 
     return (tokens, tokens_added, tokens_removed)
 
@@ -197,20 +205,20 @@ def apply_op_docs(self, op_docs, a, token_class=Token):
 
     for op_doc in op_docs:
 
-        if op['name'] in ("replace", "insert"):
+        if op_doc['name'] in ("replace", "insert"):
 
-            new_tokens = [token_class(s) for s in op['tokens']]
+            new_tokens = [token_class(s) for s in op_doc['tokens']]
             tokens.extend(new_tokens)
             tokens_added.extend(new_tokens)
 
-        if op.name in ("replace", "delete")
-            tokens_removed.extend(a[op['a1']:op['a2']])
+        if op.name in ("replace", "delete"):
+            tokens_removed.extend(op_doc[op['a1']:op_doc['a2']])
 
         elif op.name == "equal":
-            tokens.extend(self[op['a1']:op['a2']])
+            tokens.extend(self[op_doc['a1']:op_doc['a2']])
 
         else:
             raise RuntimeError("Encounted an unrecognized operation: {0}"
-                               .format(repr(op)))
+                               .format(repr(op_doc)))
 
     return (tokens, tokens_added, tokens_removed)
