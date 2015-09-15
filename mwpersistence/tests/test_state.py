@@ -36,25 +36,31 @@ def test_diff_state_incrementally():
     eq_(tokens, ["Apples", " ", "are", " ", "red", "."])
     eq_(added, ["Apples", " ", "are", " ", "red", "."])
     eq_(removed, [])
+    first_added = added
 
-    tokens, added, removed = state.update("Apples are blue.", revision=0)
+    tokens, added, removed = state.update("Apples are blue.", revision=1)
     eq_(tokens, ["Apples", " ", "are", " ", "blue", "."])
     eq_(added, ["blue"])
     eq_(removed, ["red"])
 
-    tokens, added, removed = state.update("Apples are red.", revision=0)
+    tokens, added, removed = state.update("Apples are red.", revision=2)
     eq_(tokens, ["Apples", " ", "are", " ", "red", "."])
     eq_(added, [])
     eq_(removed, [])
 
-    tokens, added, removed = state.update("Apples are tasty and red.", revision=1)
+    tokens, added, removed = \
+        state.update("Apples are tasty and red.", revision=3)
     eq_(tokens, ["Apples", " ", "are", " ", "tasty", " ", "and", " ", "red",
                  "."])
     eq_(added, ["tasty", " ", "and", " "])
     eq_(removed, [])
 
-    tokens, added, removed = state.update("Apples are tasty and blue.", revision=1)
+    tokens, added, removed = \
+        state.update("Apples are tasty and blue.", revision=4)
     eq_(tokens, ["Apples", " ", "are", " ", "tasty", " ", "and", " ", "blue",
                  "."])
     eq_(added, ["blue"])
     eq_(removed, ["red"])
+
+    eq_(first_added[4], "red")
+    eq_(first_added[4].revisions, [0, 2, 3])
