@@ -32,11 +32,12 @@ class DiffState:
 
     :Parameters:
         diff_engine : :class:`deltas.DiffEngine`
-            A "diff engine" processor or other object with a :func:`process`
-            method.
+            A "diff engine" processor for sequentially diffing text
         revert_radius : int
             a positive integer indicating the maximum revision distance
             that a revert can span.
+        revert_detector : :class:`mwreverts.Detector`
+            A revert detector.
 
     :Example:
         >>> import mwpersistence
@@ -84,8 +85,8 @@ class DiffState:
         def __init__(self):
             self.tokens = None
 
-    def __init__(self, diff_engine=None, revert_detector=None,
-                 revert_radius=None):
+    def __init__(self, diff_engine=None, revert_radius=None,
+                 revert_detector=None):
         if diff_engine is not None:
             if not hasattr(diff_engine, 'process'):
                 raise TypeError("'diff_engine' of type {0} does not have a " +
