@@ -85,13 +85,16 @@ class DiffState:
          [])
     """
 
-    def __init__(self, diff_engine, revert_detector=None, revert_radius=None):
-        if not hasattr(diff_engine, 'process'):
-            raise TypeError("'diff_engine' of type {0} does not have a " +
-                            "process() method.".format(type(diff_engine)))
-
-        self.diff_engine = diff_engine
-        self.diff_processor = self.diff_engine.processor()
+    def __init__(self, diff_engine=None, revert_detector=None, revert_radius=None):
+        if diff_engine is not None:
+            if not hasattr(diff_engine, 'process'):
+                raise TypeError("'diff_engine' of type {0} does not have a " +
+                                "process() method.".format(type(diff_engine)))
+            else:
+                self.diff_engine = diff_engine
+                self.diff_processor = self.diff_engine.processor()
+        else:
+            self.diff_engine, self.diff_processor = None, None
 
         # Either pass a detector or the revert radius so I can make one
         if revert_detector is None and revert_radius is None:
@@ -115,10 +118,7 @@ class DiffState:
             text : str
                 The text content of a revision
             revision : `mixed`
-                Revision meta data
-            checksum : str
-                A checksum hash of the text content (will be generated if not
-                provided)
+                Revision metadata
 
         :Returns:
             A triple of lists:
@@ -131,7 +131,43 @@ class DiffState:
             tokens_removed : `list` ( :class:`~mwpersistence.Token` )
                 Tokens that were removed while updating state.
         """
-        checksum = sha1(bytes(text, 'utf8')).hexdigest()
+        return self._update(text=text, revision=revision)
+
+    def update_opdocs(self, checksum, opdocs, revision=None):
+        """
+        Modifies the internal state based a change to the content and returns
+        the sets of words added and removed.
+
+        :Parameters:
+            checksum : `hashable`
+                A checksum generated from the text of a revision
+            opdocs : `iterable` ( `dict` )
+                A sequence of operations that represent the diff of this new
+                revision
+            revision : `mixed`
+                Revision metadata
+
+        :Returns:
+            A triple of lists:
+
+            current_tokens : `list` ( :class:`~mwpersistence.Token` )
+                A sequence of Tokens representing the revision that was just
+                processed.
+            tokens_added : `list` ( :class:`~mwpersistence.Token` )
+                Tokens that were added while updating state.
+            tokens_removed : `list` ( :class:`~mwpersistence.Token` )
+                Tokens that were removed while updating state.
+        """
+        return self._update(checksum=checksum, opdocs=opdocs,
+                            revision=revision)
+
+    def _update(self, text=None, checksum=None, opdocs=None, revision=None):
+        if checksum is None:
+            if text is None:
+                raise TypeError("Either 'text' or 'checksum' must be " +
+                                "specified.")
+            else:
+                checksum = sha1(bytes(text, 'utf8')).hexdigest()
 
         current_version = Version()
 
@@ -143,27 +179,31 @@ class DiffState:
             current_version.tokens = revert.reverted_to.tokens
 
             # Update diff_processor state
-            self.diff_processor.update(last_tokens=current_version.tokens)
+            if self.diff_processor is not None:
+                self.diff_processor.update(last_tokens=current_version.tokens)
 
             transition = current_version.tokens, [], []
 
         else:
 
-            # NOTICE: HEAVY COMPUTATION HERE!!!
-            #
-            # OK.  It's not that heavy.  It's just performing a diff,
-            # but you're still going to spend most of your time here.
-            # Diffs usually run in O(n^2) -- O(n^3) time and most tokenizers
-            # produce a lot of tokens.
-            operations, _, current_tokens = \
-                self.diff_processor.process(text, token_class=Token)
+            if opdocs is not None:
+                transition = apply_opdocs(opdocs, self.last.tokens or [])
+                current_version.tokens, _, _ = transition
+            else:
+                # NOTICE: HEAVY COMPUTATION HERE!!!
+                #
+                # Diffs usually run in O(n^2) -- O(n^3) time and most
+                # tokenizers produce a lot of tokens.
+                if self.diff_processor is None:
+                    raise RuntimeError("DiffState cannot process raw text " +
+                                       "without a diff_engine specified.")
+                operations, _, current_tokens = \
+                    self.diff_processor.process(text, token_class=Token)
 
-            operations = list(operations)
-            print(operations)
-
-            transition = apply_operations(operations, self.last.tokens or [],
-                                          current_tokens)
-            current_version.tokens, _, _ = transition
+                transition = apply_operations(operations,
+                                              self.last.tokens or [],
+                                              current_tokens)
+                current_version.tokens, _, _ = transition
 
         # Record persistence
         for t in current_version.tokens:
@@ -174,6 +214,8 @@ class DiffState:
 
         # Return the tranisitoned state
         return transition
+
+
 
 
 def apply_operations(operations, a, b):
@@ -198,7 +240,7 @@ def apply_operations(operations, a, b):
     return (tokens, tokens_added, tokens_removed)
 
 
-def apply_op_docs(self, op_docs, a, token_class=Token):
+def apply_opdocs(op_docs, a, token_class=Token):
     tokens = []
     tokens_added = []
     tokens_removed = []
@@ -211,14 +253,10 @@ def apply_op_docs(self, op_docs, a, token_class=Token):
             tokens.extend(new_tokens)
             tokens_added.extend(new_tokens)
 
-        if op.name in ("replace", "delete"):
-            tokens_removed.extend(op_doc[op['a1']:op_doc['a2']])
+        if op_doc['name'] in ("replace", "delete"):
+            tokens_removed.extend(a[op_doc['a1']:op_doc['a2']])
 
-        elif op.name == "equal":
-            tokens.extend(self[op_doc['a1']:op_doc['a2']])
-
-        else:
-            raise RuntimeError("Encounted an unrecognized operation: {0}"
-                               .format(repr(op_doc)))
+        elif op_doc['name'] == "equal":
+            tokens.extend(a[op_doc['a1']:op_doc['a2']])
 
     return (tokens, tokens_added, tokens_removed)

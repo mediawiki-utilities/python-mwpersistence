@@ -1,0 +1,2 @@
+class FileTypeError(RuntimeError):
+    pass
