@@ -27,13 +27,6 @@ class State:
 
 
 class DiffState:
-
-    class Version:
-        __slots__ = ('tokens',)
-
-        def __init__(self):
-            self.tokens = None
-
     """
     Constructs a state object with a diff-based transition function.
 
@@ -46,12 +39,12 @@ class DiffState:
             that a revert can span.
 
     :Example:
-        >>> from pprint import pprint
-        >>> from mw.lib import persistence
+        >>> import mwpersistence
+        >>> import deltas
         >>>
-        >>> state = persistence.State()
+        >>> state = mwpersistence.DiffState(deltas.SegmentMatcher())
         >>>
-        >>> pprint(state.process("Apples are red.", revision=1))
+        >>> print(state.update("Apples are red.", revision=1))
         ([Token(text='Apples', revisions=[1]),
           Token(text=' ', revisions=[1]),
           Token(text='are', revisions=[1]),
@@ -65,7 +58,7 @@ class DiffState:
           Token(text='red', revisions=[1]),
           Token(text='.', revisions=[1])],
          [])
-        >>> pprint(state.process("Apples are blue.", revision=2))
+        >>> print(state.update("Apples are blue.", revision=2))
         ([Token(text='Apples', revisions=[1, 2]),
           Token(text=' ', revisions=[1, 2]),
           Token(text='are', revisions=[1, 2]),
@@ -74,7 +67,7 @@ class DiffState:
           Token(text='.', revisions=[1, 2])],
          [Token(text='blue', revisions=[2])],
          [Token(text='red', revisions=[1])])
-        >>> pprint(state.process("Apples are red.", revision=3)) # A revert!
+        >>> print(state.update("Apples are red.", revision=3)) # A revert!
         ([Token(text='Apples', revisions=[1, 2, 3]),
           Token(text=' ', revisions=[1, 2, 3]),
           Token(text='are', revisions=[1, 2, 3]),
@@ -85,7 +78,14 @@ class DiffState:
          [])
     """
 
-    def __init__(self, diff_engine=None, revert_detector=None, revert_radius=None):
+    class Version:
+        __slots__ = ('tokens',)
+
+        def __init__(self):
+            self.tokens = None
+
+    def __init__(self, diff_engine=None, revert_detector=None,
+                 revert_radius=None):
         if diff_engine is not None:
             if not hasattr(diff_engine, 'process'):
                 raise TypeError("'diff_engine' of type {0} does not have a " +
