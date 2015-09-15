@@ -1,55 +1,58 @@
 r"""
-Full pipeline from MediaWiki XML dumps to content persistence statistics.
+``$ mwpersistence diffs2persistence -h``
+::
 
-Usage:
-    dump2stats (-h|--help)
-    dump2stats [<dump_file>...] --config=<path> --sunset=<date>
-               [--namespaces=<ids>] [--timeout=<secs>]
-               [--window=<revs>] [--revert-radius=<revs>]
-               [--min-persisted=<num>] [--min-visible=<days>]
-               [--include=<regex>] [--exclude=<regex>]
-               [--keep-text] [--keep-diff] [--keep-tokens]
-               [--threads=<num>] [--verbose]
+    Full pipeline from MediaWiki XML dumps to content persistence statistics.
 
-Options:
-    -h|--help               Print this documentation
-    <dump-file>             The path to a MediaWiki XML Dump file
-                            [default: <stdin>]
-    --config=<path>         The path to a deltas DiffEngine configuration
-    --namespaces=<ids>      A comma separated list of namespace IDs to be
-                            considered [default: <all>]
-    --timeout=<secs>        The maximum number of seconds that a diff will be
-                            allowed to run before being stopped [default: 10]
-    --sunset=<date>         The date of the database dump we are generating
-                            from.  This is used to apply a 'time visible'
-                            statistic.  Expects %Y-%m-%dT%H:%M:%SZ".
-    --window=<revs>         The size of the window of revisions from which
-                            persistence data will be generated.
-                            [default: 50]
-    --revert-radius=<revs>  The number of revisions back that a revert can
-                            reference. [default: 15]
-                            [default: <now>]
-    --min-persisted=<num>   The minimum number of revisions a token must
-                            survive before being considered "persisted"
-                            [default: 5]
-    --min-visible=<days>    The minimum amount of time a token must survive
-                            before being considered "persisted" (in days)
-                            [default: 14]
-    --include=<regex>       A regex matching tokens to include
-                            [default: <all>]
-    --exclude=<regex>       A regex matching tokens to exclude
-                            [default: <none>]
-    --keep-text             If set, the 'text' field will be populated in the
-                            output JSON.
-    --keep-diff             If set, the 'diff' field will be populated in the
-                            output JSON.
-    --keep-tokens           If set, the 'tokens' field will be populated in the
-                            output JSON.
-    --threads=<num>         If a collection of files are provided, how many
-                            processor threads should be prepare?
-                            [default: <cpu_count>]
-    --verbose               Print progress information to stderr.  Kind of a
-                            mess when running multi-threaded.
+    Usage:
+        dump2stats (-h|--help)
+        dump2stats [<dump_file>...] --config=<path> --sunset=<date>
+                   [--namespaces=<ids>] [--timeout=<secs>]
+                   [--window=<revs>] [--revert-radius=<revs>]
+                   [--min-persisted=<num>] [--min-visible=<days>]
+                   [--include=<regex>] [--exclude=<regex>]
+                   [--keep-text] [--keep-diff] [--keep-tokens]
+                   [--threads=<num>] [--verbose]
+
+    Options:
+        -h|--help               Print this documentation
+        <dump-file>             The path to a MediaWiki XML Dump file
+                                [default: <stdin>]
+        --config=<path>         The path to a deltas DiffEngine configuration
+        --namespaces=<ids>      A comma separated list of namespace IDs to be
+                                considered [default: <all>]
+        --timeout=<secs>        The maximum number of seconds that a diff will
+                                be allowed to run before being stopped
+                                [default: 10]
+        --sunset=<date>         The date of the database dump we are generating
+                                from.  This is used to apply a 'time visible'
+                                statistic.  Expects %Y-%m-%dT%H:%M:%SZ".
+        --window=<revs>         The size of the window of revisions from which
+                                persistence data will be generated.
+                                [default: 50]
+        --revert-radius=<revs>  The number of revisions back that a revert can
+                                reference. [default: 15]
+                                [default: <now>]
+        --min-persisted=<num>   The minimum number of revisions a token must
+                                survive before being considered "persisted"
+                                [default: 5]
+        --min-visible=<days>    The minimum amount of time a token must survive
+                                before being considered "persisted" (in days)
+                                [default: 14]
+        --include=<regex>       A regex matching tokens to include
+                                [default: <all>]
+        --exclude=<regex>       A regex matching tokens to exclude
+                                [default: <none>]
+        --keep-text             If set, the 'text' field will be populated in
+                                the output JSON.
+        --keep-diff             If set, the 'diff' field will be populated in
+                                the output JSON.
+        --keep-tokens           If set, the 'tokens' field will be populated in
+                                the output JSON.
+        --threads=<num>         If a collection of files are provided, how many
+                                processor threads should be prepare?
+                                [default: <cpu_count>]
+        --verbose               Print progress information to stderr.
 """
 import json
 import sys

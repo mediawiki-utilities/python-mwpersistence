@@ -1,50 +1,54 @@
 r"""
-Generates token persistence statistics by reading revision diffs and applying
-them to a token list.
-
-Expects to get revision diff JSON blobs that are partitioned by
-page_id and otherwise sorted chronologically.  Outputs token persistence
-statistics JSON blobs.  The output of this script is guaranteed to be
-paritioned by rev_id, but not
-
-Uses a 'window' to limit memory usage.  New revisions enter the head of the
-window and old revisions fall off the tail.  Stats are generated at the tail of
-the window.
-
+``$ mwpersistence diffs2persistence -h``
 ::
-                           window
-                      .------+------.
 
-    revisions ========[=============]=============>
+    Generates token persistence statistics by reading revision diffs and applying
+    them to a token list.
 
-                    /                \
-                [tail]              [head]
+    Expects to get revision diff JSON blobs that are partitioned by
+    page_id and otherwise sorted chronologically.  Outputs token persistence
+    statistics JSON blobs.  The output of this script is guaranteed to be
+    paritioned by rev_id, but not
+
+    Uses a 'window' to limit memory usage.  New revisions enter the head of the
+    window and old revisions fall off the tail.  Stats are generated at the
+    tail of the window.
+
+    ::
+                               window
+                          .------+------.
+
+        revisions ========[=============]=============>
+
+                        /                \
+                    [tail]              [head]
 
 
-Usage:
-    diffs2persistence (-h|--help)
-    diffs2persistence [<diff-file>...] --sunset=<date>
-                      [--window=<revs>] [--revert-radius=<revs>]
-                      [--keep-diff] [--threads=<num>] [--verbose]
+    Usage:
+        diffs2persistence (-h|--help)
+        diffs2persistence [<diff-file>...] --sunset=<date>
+                          [--window=<revs>] [--revert-radius=<revs>]
+                          [--keep-diff] [--threads=<num>] [--verbose]
 
-Options:
-    -h|--help               Prints this documentation
-    <diff-file>             The path to a set of revision JSON blobs with a
-                            'diff' field to process.
-    --sunset=<date>         The date of the database dump we are generating
-                            from.  This is used to apply a 'time visible'
-                            statistic.  Expects %Y-%m-%dT%H:%M:%SZ".
-    --window=<revs>         The size of the window of revisions from which
-                            persistence data will be generated.
-                            [default: 50]
-    --revert-radius=<revs>  The number of revisions back that a revert can
-                            reference. [default: 15]
-                            [default: <now>]
-    --threads=<num>         If a collection of files are provided, how many
-                            processor threads should be prepare?
-                            [default: <cpu_count>]
-    --keep-diff             Do not drop 'diff' field data from the json blobs.
-    --verbose               Print dots and stuff to stderr
+    Options:
+        -h|--help               Prints this documentation
+        <diff-file>             The path to a set of revision JSON blobs with a
+                                'diff' field to process.
+        --sunset=<date>         The date of the database dump we are generating
+                                from.  This is used to apply a 'time visible'
+                                statistic.  Expects %Y-%m-%dT%H:%M:%SZ".
+        --window=<revs>         The size of the window of revisions from which
+                                persistence data will be generated.
+                                [default: 50]
+        --revert-radius=<revs>  The number of revisions back that a revert can
+                                reference. [default: 15]
+                                [default: <now>]
+        --threads=<num>         If a collection of files are provided, how many
+                                processor threads should be prepare?
+                                [default: <cpu_count>]
+        --keep-diff             Do not drop 'diff' field data from the json
+                                blobs.
+        --verbose               Print dots and stuff to stderr
 """
 import json
 import logging

@@ -1,37 +1,40 @@
 r"""
-Aggregates a stream of token persistence stats into revision statistics.
-RevisionDocument JSON blobs are printed to <stdout> with an additional
-'stats' field.
+``$ mwpersistence persistence2stats -h``
+::
 
-Note that the 'persistence' field will be deleted (to save space) unless
-the `--keep-persistence` flag is used.
+    Aggregates a stream of token persistence stats into revision statistics.
+    RevisionDocument JSON blobs are printed to <stdout> with an additional
+    'stats' field.
 
-Usage:
-    persistence2stats (-h | --help)
-    persistence2stats [<persistence-file>...] [--min-persisted=<num>]
-                      [--min-visible=<days>] [--include=<regex>]
-                      [--exclude=<regex>] [--keep-tokens]
-                      [--threads=<num>] [--verbose]
+    Note that the 'persistence' field will be deleted (to save space) unless
+    the `--keep-persistence` flag is used.
 
-Options:
-    -h|--help              Print this documentation
-    <persistence-file>     The path to a file containing persistence data.
-    --min-persisted=<num>  The minimum number of revisions a token must
-                           survive before being considered "persisted"
-                           [default: 5]
-    --min-visible=<days>   The minimum amount of time a token must survive
-                           before being considered "persisted" (in days)
-                           [default: 14]
-    --include=<regex>      A regex matching tokens to include (case
-                           insensitive) [default: <all>]
-    --exclude=<regex>      A regex matching tokens to exclude (case
-                           insensitive) [default: <none>]
-    --threads=<num>        If a collection of files are provided, how many
-                           processor threads should be prepare?
-                           [default: <cpu_count>]
-    --keep-tokens          Do not drop 'tokens' field data from the JSON
-                           document.
-    --verbose              Print out progress information
+    Usage:
+        persistence2stats (-h | --help)
+        persistence2stats [<persistence-file>...] [--min-persisted=<num>]
+                          [--min-visible=<days>] [--include=<regex>]
+                          [--exclude=<regex>] [--keep-tokens]
+                          [--threads=<num>] [--verbose]
+
+    Options:
+        -h|--help              Print this documentation
+        <persistence-file>     The path to a file containing persistence data.
+        --min-persisted=<num>  The minimum number of revisions a token must
+                               survive before being considered "persisted"
+                               [default: 5]
+        --min-visible=<days>   The minimum amount of time a token must survive
+                               before being considered "persisted" (in days)
+                               [default: 14]
+        --include=<regex>      A regex matching tokens to include (case
+                               insensitive) [default: <all>]
+        --exclude=<regex>      A regex matching tokens to exclude (case
+                               insensitive) [default: <none>]
+        --threads=<num>        If a collection of files are provided, how many
+                               processor threads should be prepare?
+                               [default: <cpu_count>]
+        --keep-tokens          Do not drop 'tokens' field data from the JSON
+                               document.
+        --verbose              Print out progress information
 """
 import json
 import re

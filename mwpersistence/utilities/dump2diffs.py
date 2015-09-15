@@ -1,38 +1,42 @@
 r"""
-Computes diffs from an XML dump.  This script expects either be
-given a decompressed dump to <stdin> (single thread) or to have <dump file>s
-specified as command-line arguments (multi-threaded).
+``$ mwpersistence dump2diffs -h``
+::
 
-If no <dump files>s are specified, this script expects to read a decompressed
-dump from <stdin>.
+    Computes diffs from an XML dump.  This script expects either be
+    given a decompressed dump to <stdin> (single thread) or to have
+    <dump file>s specified as command-line arguments (multi-threaded).
 
-$ bzcat dump.xml.bz2 | dump2diffs --config=conf.yaml > diffs.json
+    If no <dump files>s are specified, this script expects to read a
+    decompressed dump from <stdin>.
 
-In the case that <dump files>s are specified, this utility can process them
-multi-threaded.  You can customize the number of parallel `--threads`.
+    $ bzcat dump.xml.bz2 | dump2diffs --config=conf.yaml > diffs.json
 
-$ dump2diffs pages-meta-history*.xml.bz2 --config=conf.yaml > diffs.json
+    In the case that <dump files>s are specified, this utility can process them
+    multi-threaded.  You can customize the number of parallel `--threads`.
 
-Usage:
-    dump2diffs (-h|--help)
-    dump2diffs [<dump_file>...] --config=<path> [--namespaces=<ids>]
-               [--timeout=<secs>] [--keep-text] [--threads=<num>] [--verbose]
+    $ dump2diffs pages-meta-history*.xml.bz2 --config=conf.yaml > diffs.json
 
-Options:
-    -h|--help           Print this documentation
-    <dump-file>         The path to a MediaWiki XML Dump file
-                        [default: <stdin>]
-    --config=<path>     The path to a deltas DiffEngine configuration
-    --namespaces=<ids>  A comma separated list of namespace IDs to be
-                        considered [default: <all>]
-    --timeout=<secs>    The maximum number of seconds that a diff will be able
-                        to run before being stopped [default: 10]
-    --keep-text         If set, the 'text' field will be populated in the
-                        output JSON.
-    --threads=<num>     If a collection of files are provided, how many
-                        processor threads? [default: <cpu_count>]
-    --verbose           Print progress information to stderr.  Kind of a mess
-                        when running multi-threaded.
+    Usage:
+        dump2diffs (-h|--help)
+        dump2diffs [<dump_file>...] --config=<path> [--namespaces=<ids>]
+                   [--timeout=<secs>] [--keep-text] [--threads=<num>]
+                   [--verbose]
+
+    Options:
+        -h|--help           Print this documentation
+        <dump-file>         The path to a MediaWiki XML Dump file
+                            [default: <stdin>]
+        --config=<path>     The path to a deltas DiffEngine configuration
+        --namespaces=<ids>  A comma separated list of namespace IDs to be
+                            considered [default: <all>]
+        --timeout=<secs>    The maximum number of seconds that a diff will be
+                            able to run before being stopped [default: 10]
+        --keep-text         If set, the 'text' field will be populated in the
+                            output JSON.
+        --threads=<num>     If a collection of files are provided, how many
+                            processor threads? [default: <cpu_count>]
+        --verbose           Print progress information to stderr.  Kind of a
+                            mess when running multi-threaded.
 """
 import json
 import logging
