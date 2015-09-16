@@ -11,10 +11,9 @@ def requirements(fname):
     for line in open(os.path.join(os.path.dirname(__file__), fname)):
         yield line.strip()
 
-
 setup(
     name="mwpersistence",
-    version="0.1.0",  # see mwpersistence/__init__.py
+    version="0.1.1",  # see mwpersistence/__init__.py
     author="Aaron Halfaker",
     author_email="ahalfaker@wikimedia.org",
     description="A set of utilities for measuring content persistence and " +
@@ -28,7 +27,7 @@ setup(
         ],
     },
     long_description=read('README.md'),
-    install_requires=requirements('requirements.txt'),
+    install_requires=list(requirements('requirements.txt')),
     classifiers=[
         "Development Status :: 4 - Beta",
         "Topic :: Software Development :: Libraries :: Python Modules",
