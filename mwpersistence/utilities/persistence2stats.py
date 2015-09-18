@@ -13,8 +13,8 @@ r"""
         persistence2stats (-h | --help)
         persistence2stats [<persistence-file>...] [--min-persisted=<num>]
                           [--min-visible=<days>] [--include=<regex>]
-                          [--exclude=<regex>] [--keep-tokens]
-                          [--threads=<num>] [--verbose]
+                          [--exclude=<regex>] [--keep-tokens] [--threads=<num>]
+                          [--output=<path>] [--compress=<type>] [--verbose]
 
     Options:
         -h|--help              Print this documentation
@@ -29,14 +29,19 @@ r"""
                                insensitive) [default: <all>]
         --exclude=<regex>      A regex matching tokens to exclude (case
                                insensitive) [default: <none>]
+        --keep-tokens          Do not drop 'tokens' field data from the JSON
+                               document.
         --threads=<num>        If a collection of files are provided, how many
                                processor threads should be prepare?
                                [default: <cpu_count>]
-        --keep-tokens          Do not drop 'tokens' field data from the JSON
-                               document.
+        --output=<path>        Write output to a directory with one output file
+                               per input path.  [default: <stdout>]
+        --compress=<type>      If set, output written to the output-dir will be
+                               compressed in this format. [default: bz2]
         --verbose              Print out progress information
 """
 import json
+import logging
 import re
 import sys
 from math import log
@@ -46,11 +51,18 @@ import docopt
 import para
 
 from .. import files
-from .util import drop_tokens
+from .util import drop_tokens, normalize_doc
+
+logger = logging.getLogger(__name__)
 
 
 def main(argv=None):
     args = docopt.docopt(__doc__, argv=argv)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(levelname)s:%(name)s -- %(message)s'
+    )
 
     if len(args['<persistence-file>']) == 0:
         paths = [sys.stdin]
@@ -66,10 +78,26 @@ def main(argv=None):
     else:
         threads = int(args['--threads'])
 
+    if args['--output'] == "<stdout>":
+        output_dir = None
+        logger.info("Writing output to stdout.  Ignoring 'compress' setting.")
+        compression = None
+    else:
+        output_dir = files.normalize_dir(args['--output'])
+        compression = args['--compress']
+
+    if args['--output'] == "<stdout>":
+        output_dir = None
+        logger.info("Writing output to stdout.  Ignoring 'compress' setting.")
+        compression = None
+    else:
+        output_dir = files.normalize_dir(args['--output'])
+        compression = args['--compress']
+
     verbose = bool(args['--verbose'])
 
-    run(paths, min_persisted, min_visible, include, exclude, threads,
-        keep_tokens, verbose)
+    run(paths, min_persisted, min_visible, include, exclude, keep_tokens,
+        threads, output_dir, compression, verbose)
 
 
 def process_args(args):
@@ -95,20 +123,27 @@ def process_args(args):
     return min_persisted, min_visible, include, exclude, keep_tokens
 
 
-def run(paths, min_persisted, min_visible, include, exclude, threads,
-        keep_tokens, verbose):
+def run(paths, min_persisted, min_visible, include, exclude, keep_tokens,
+        threads, output_dir, compression, verbose):
 
     def process_path(path):
-        f = files.open(path)
+        f = files.reader(path)
         rev_docs = persistence2stats((normalize_doc(json.loads(line))
                                       for line in f),
                                      min_persisted, min_visible, include,
                                      exclude, verbose=False)
 
         if not keep_tokens:
-            return drop_tokens(rev_docs)
+            rev_docs = drop_tokens(rev_docs)
+
+        if output_dir == None:
+            yield from rev_docs
         else:
-            return rev_docs
+            new_path = files.output_dir_path(path, output_dir, compression)
+            writer = files.writer(new_path)
+            for rev_doc in rev_docs:
+                json.dump(rev_doc, writer)
+                writer.write("\n")
 
     for rev_doc in para.map(process_path, paths, mappers=threads):
         json.dump(rev_doc, sys.stdout)

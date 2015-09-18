@@ -1,1 +1,2 @@
-from .functions import open, normalize_path
+from .functions import (reader, writer, output_dir_path, normalize_path,
+                        normalize_dir)

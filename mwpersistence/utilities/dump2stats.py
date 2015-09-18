@@ -12,7 +12,8 @@ r"""
                    [--min-persisted=<num>] [--min-visible=<days>]
                    [--include=<regex>] [--exclude=<regex>]
                    [--keep-text] [--keep-diff] [--keep-tokens]
-                   [--threads=<num>] [--verbose]
+                   [--threads=<num>] [--output=<path>] [--compress=<type>]
+                   [--verbose]
 
     Options:
         -h|--help               Print this documentation
@@ -27,12 +28,12 @@ r"""
         --sunset=<date>         The date of the database dump we are generating
                                 from.  This is used to apply a 'time visible'
                                 statistic.  Expects %Y-%m-%dT%H:%M:%SZ".
+                                [default: <now>]
         --window=<revs>         The size of the window of revisions from which
                                 persistence data will be generated.
                                 [default: 50]
         --revert-radius=<revs>  The number of revisions back that a revert can
                                 reference. [default: 15]
-                                [default: <now>]
         --min-persisted=<num>   The minimum number of revisions a token must
                                 survive before being considered "persisted"
                                 [default: 5]
@@ -52,9 +53,14 @@ r"""
         --threads=<num>         If a collection of files are provided, how many
                                 processor threads should be prepare?
                                 [default: <cpu_count>]
+        --output=<path>         Write output to a directory with one output
+                                file per input path.  [default: <stdout>]
+        --compress=<type>       If set, output written to the output-dir will
+                                be compressed in this format. [default: bz2]
         --verbose               Print progress information to stderr.
 """
 import json
+import logging
 import sys
 from multiprocessing import cpu_count
 
@@ -62,11 +68,19 @@ import docopt
 import mwxml
 
 from . import diffs2persistence, dump2diffs, persistence2stats
+from .. import files
 from .util import drop_diff, drop_text, drop_tokens
+
+logger = logging.getLogger(__name__)
 
 
 def main(argv=None):
     args = docopt.docopt(__doc__, argv=argv)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(levelname)s:%(name)s -- %(message)s'
+    )
 
     if len(args['<dump_file>']) == 0:
         paths = [sys.stdin]
@@ -86,14 +100,22 @@ def main(argv=None):
 
     verbose = bool(args['--verbose'])
 
+    if args['--output'] == "<stdout>":
+        output_dir = None
+        logger.info("Writing output to stdout.  Ignoring 'compress' setting.")
+        compression = None
+    else:
+        output_dir = files.normalize_dir(args['--output'])
+        compression = args['--compress']
+
     run(paths, diff_engine, namespaces, timeout, window_size, revert_radius,
         sunset, min_persisted, min_visible, include, exclude, keep_text,
-        keep_diff, keep_tokens, threads, verbose)
+        keep_diff, keep_tokens, threads, output_dir, compression, verbose)
 
 
 def run(paths, diff_engine, namespaces, timeout, window_size, revert_radius,
         sunset, min_persisted, min_visible, include, exclude, keep_text,
-        keep_diff, keep_tokens, threads, verbose):
+        keep_diff, keep_tokens, threads, output_dir, compression, verbose):
 
     def process(dump, path):
         diff_docs = dump2diffs.dump2diffs(dump, diff_engine, namespaces,
@@ -111,7 +133,14 @@ def run(paths, diff_engine, namespaces, timeout, window_size, revert_radius,
         if not keep_tokens:
             stats_docs = drop_tokens(stats_docs)
 
-        yield from stats_docs
+        if output_dir == None:
+            yield from stats_docs
+        else:
+            new_path = files.output_dir_path(path, output_dir, compression)
+            writer = files.writer(new_path)
+            for rev_doc in stats_docs:
+                json.dump(rev_doc, writer)
+                writer.write("\n")
 
     for rev_doc in mwxml.map(process, paths, threads=threads):
         json.dump(rev_doc, sys.stdout)

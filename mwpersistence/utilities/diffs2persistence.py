@@ -28,7 +28,8 @@ r"""
         diffs2persistence (-h|--help)
         diffs2persistence [<diff-file>...] --sunset=<date>
                           [--window=<revs>] [--revert-radius=<revs>]
-                          [--keep-diff] [--threads=<num>] [--verbose]
+                          [--keep-diff] [--threads=<num>] [--output=<path>]
+                          [--compress=<type>] [--verbose]
 
     Options:
         -h|--help               Prints this documentation
@@ -37,17 +38,21 @@ r"""
         --sunset=<date>         The date of the database dump we are generating
                                 from.  This is used to apply a 'time visible'
                                 statistic.  Expects %Y-%m-%dT%H:%M:%SZ".
+                                [default: <now>]
         --window=<revs>         The size of the window of revisions from which
                                 persistence data will be generated.
                                 [default: 50]
         --revert-radius=<revs>  The number of revisions back that a revert can
                                 reference. [default: 15]
-                                [default: <now>]
+        --keep-diff             Do not drop 'diff' field data from the json
+                                blobs.
         --threads=<num>         If a collection of files are provided, how many
                                 processor threads should be prepare?
                                 [default: <cpu_count>]
-        --keep-diff             Do not drop 'diff' field data from the json
-                                blobs.
+        --output=<path>         Write output to a directory with one output
+                                file per input path.  [default: <stdout>]
+        --compress=<type>       If set, output written to the output-dir will
+                                be compressed in this format. [default: bz2]
         --verbose               Print dots and stuff to stderr
 """
 import json
@@ -73,6 +78,11 @@ logger = logging.getLogger(__name__)
 def main(argv=None):
     args = docopt.docopt(__doc__, argv=argv)
 
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(levelname)s:%(name)s -- %(message)s'
+    )
+
     if len(args['<diff-file>']) == 0:
         paths = [sys.stdin]
     else:
@@ -85,10 +95,18 @@ def main(argv=None):
     else:
         threads = int(args['--threads'])
 
+    if args['--output'] == "<stdout>":
+        output_dir = None
+        logger.info("Writing output to stdout.  Ignoring 'compress' setting.")
+        compression = None
+    else:
+        output_dir = files.normalize_dir(args['--output'])
+        compression = args['--compress']
+
     verbose = bool(args['--verbose'])
 
     run(paths, window_size, revert_radius, sunset, keep_diff, threads,
-        verbose)
+        output_dir, compression, verbose)
 
 
 def process_args(args):
@@ -107,10 +125,10 @@ def process_args(args):
 
 
 def run(paths, window_size, revert_radius, sunset, keep_diff, threads,
-        verbose):
+        output_dir, compression, verbose):
 
     def process_path(path):
-        f = files.open(path)
+        f = files.reader(path)
         rev_docs = diffs2persistence((normalize_doc(json.loads(line))
                                       for line in f),
                                      window_size, revert_radius,
@@ -119,7 +137,14 @@ def run(paths, window_size, revert_radius, sunset, keep_diff, threads,
         if not keep_diff:
             rev_docs = drop_diff(rev_docs)
 
-        yield from rev_docs
+        if output_dir == None:
+            yield from rev_docs
+        else:
+            new_path = files.output_dir_path(path, output_dir, compression)
+            writer = files.writer(new_path)
+            for rev_doc in rev_docs:
+                json.dump(rev_doc, writer)
+                writer.write("\n")
 
     for rev_doc in para.map(process_path, paths, mappers=threads):
         json.dump(rev_doc, sys.stdout)
