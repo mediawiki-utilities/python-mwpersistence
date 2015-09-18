@@ -43,3 +43,14 @@ def revision2doc(revision, page):
     rev_doc = revision.to_json()
     rev_doc['page'] = page.to_json()
     return rev_doc
+
+
+def normalize_doc(rev_doc):
+    if 'contributor' in rev_doc:
+        contributor_doc = rev_doc['contributor'] or {}
+        user_doc = {'id': contributor_doc.get('id'),
+                    'text': contributor_doc.get('user_text')}
+
+        rev_doc['user'] = user_doc
+
+    return rev_doc

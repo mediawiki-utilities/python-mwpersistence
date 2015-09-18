@@ -2,15 +2,13 @@ import bz2
 import gzip
 import os
 
-from . import snappy
 from ..errors import FileTypeError
 
 FILE_OPENERS = {
     'xml': open,
-    'gz': gzip.open,
-    'bz2': bz2.open,
-    'json': open,
-    'snappy': snappy.open
+    'gz': lambda fn: gzip.open(fn, 'rt', encoding='utf-8', errors='replace'),
+    'bz2': lambda fn: bz2.open(fn, 'rt', encoding='utf-8', errors='replace'),
+    'json': open
 }
 """
 Maps extensions to the strategy for opening/decompressing a file

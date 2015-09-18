@@ -65,7 +65,7 @@ from mwtypes import Timestamp
 
 from .. import files
 from ..state import DiffState
-from .util import drop_diff
+from .util import drop_diff, normalize_doc
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +111,8 @@ def run(paths, window_size, revert_radius, sunset, keep_diff, threads,
 
     def process_path(path):
         f = files.open(path)
-        rev_docs = diffs2persistence((json.loads(line) for line in f),
+        rev_docs = diffs2persistence((normalize_doc(json.loads(line))
+                                      for line in f),
                                      window_size, revert_radius,
                                      sunset, verbose)
 
@@ -186,7 +187,8 @@ def diffs2persistence(rev_docs, window_size=50, revert_radius=15, sunset=None,
                 seconds_visible = sunset - Timestamp(rev_doc['timestamp'])
 
             if seconds_visible < 0:
-                logger.warn("Seconds visible is less than zero.")
+                logger.warn("Seconds visible {0} is less than zero."
+                            .format(seconds_visible))
                 seconds_visible = 0
 
             _, tokens_added, _ = \

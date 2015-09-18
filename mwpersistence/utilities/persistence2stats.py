@@ -100,7 +100,8 @@ def run(paths, min_persisted, min_visible, include, exclude, threads,
 
     def process_path(path):
         f = files.open(path)
-        rev_docs = persistence2stats((json.loads(line) for line in f),
+        rev_docs = persistence2stats((normalize_doc(json.loads(line))
+                                      for line in f),
                                      min_persisted, min_visible, include,
                                      exclude, verbose=False)
 
