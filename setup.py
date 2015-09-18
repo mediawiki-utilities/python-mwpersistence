@@ -13,7 +13,7 @@ def requirements(fname):
 
 setup(
     name="mwpersistence",
-    version="0.1.1",  # see mwpersistence/__init__.py
+    version="0.1.2",  # see mwpersistence/__init__.py
     author="Aaron Halfaker",
     author_email="ahalfaker@wikimedia.org",
     description="A set of utilities for measuring content persistence and " +
