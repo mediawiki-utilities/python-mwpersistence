@@ -17,9 +17,19 @@ mwpersistence dump2stats
 ++++++++++++++++++++++++
 .. automodule:: mwpersistence.utilities.dump2stats
 
+mwpersistence revdocs2stats
+++++++++++++++++++++++++
+.. automodule:: mwpersistence.utilities.revdocs2stats
+
 """
 from .diffs2persistence import diffs2persistence, drop_diff
-from .dump2stats import dump2stats
+from .diffs2persistence import process_args as diffs2persistence_args
 from .persistence2stats import persistence2stats, drop_tokens
+from .persistence2stats import process_args as persistence2stats_args
+from .dump2stats import dump2stats
+from .revdocs2stats import revdocs2stats
 
-__all__ = [diffs2persistence, dump2stats, persistence2stats]
+__all__ = [diffs2persistence, drop_diff, diffs2persistence_args,
+           persistence2stats, drop_tokens, persistence2stats_args,
+           dump2stats,
+           revdocs2stats]
