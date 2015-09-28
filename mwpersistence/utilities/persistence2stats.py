@@ -2,23 +2,21 @@ r"""
 ``$ mwpersistence persistence2stats -h``
 ::
 
-    Aggregates a stream of token persistence stats into revision statistics.
-    RevisionDocument JSON blobs are printed to <stdout> with an additional
-    'stats' field.
-
-    Note that the 'persistence' field will be deleted (to save space) unless
-    the `--keep-persistence` flag is used.
+    Generates revision-level statistics from a sequence of token persistence
+    infused revision documents into revision statistics.
 
     Usage:
         persistence2stats (-h | --help)
-        persistence2stats [<persistence-file>...] [--min-persisted=<num>]
+        persistence2stats [<input-file>...] [--min-persisted=<num>]
                           [--min-visible=<days>] [--include=<regex>]
                           [--exclude=<regex>] [--keep-tokens] [--threads=<num>]
                           [--output=<path>] [--compress=<type>] [--verbose]
+                          [--debug]
 
     Options:
-        -h|--help              Print this documentation
-        <persistence-file>     The path to a file containing persistence data.
+        -h --help              Print this documentation
+        <input-file>           The path to a file containing persistence data.
+                               [default: <stdin>]
         --min-persisted=<num>  The minimum number of revisions a token must
                                survive before being considered "persisted"
                                [default: 5]
@@ -39,72 +37,20 @@ r"""
         --compress=<type>      If set, output written to the output-dir will be
                                compressed in this format. [default: bz2]
         --verbose              Print out progress information
+        --debug                Print debug logging to stderr.
 """
-import json
 import logging
 import re
 import sys
 from math import log
-from multiprocessing import cpu_count
 
-import docopt
-import para
-
-from .. import files
-from .util import drop_tokens, normalize_doc
+import mwcli
+import mwxml.utilities
 
 logger = logging.getLogger(__name__)
 
 
-def main(argv=None):
-    args = docopt.docopt(__doc__, argv=argv)
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s %(levelname)s:%(name)s -- %(message)s'
-    )
-
-    if len(args['<persistence-file>']) == 0:
-        paths = [sys.stdin]
-    else:
-        paths = [files.normalize_path(path)
-                 for path in args['<persistence-file>']]
-
-    min_persisted, min_visible, include, exclude, keep_tokens = \
-        process_args(args)
-
-    if args['--threads'] == "<cpu_count>":
-        threads = cpu_count()
-    else:
-        threads = int(args['--threads'])
-
-    if args['--output'] == "<stdout>":
-        output_dir = None
-        logger.info("Writing output to stdout.  Ignoring 'compress' setting.")
-        compression = None
-    else:
-        output_dir = files.normalize_dir(args['--output'])
-        compression = args['--compress']
-
-    if args['--output'] == "<stdout>":
-        output_dir = None
-        logger.info("Writing output to stdout.  Ignoring 'compress' setting.")
-        compression = None
-    else:
-        output_dir = files.normalize_dir(args['--output'])
-        compression = args['--compress']
-
-    verbose = bool(args['--verbose'])
-
-    run(paths, min_persisted, min_visible, include, exclude, keep_tokens,
-        threads, output_dir, compression, verbose)
-
-
 def process_args(args):
-    min_persisted = int(args['--min-persisted'])
-
-    # Converts from days to seconds
-    min_visible = float(args['--min-visible']) * (60 * 60 * 24)
 
     if args['--include'] == "<all>":
         include = None
@@ -118,36 +64,25 @@ def process_args(args):
         exclude_re = re.compile(args['--exclude'], re.UNICODE | re.I)
         exclude = lambda t: bool(exclude_re.search(t))
 
-    keep_tokens = bool(args['--keep-tokens'])
+    return {'min_persisted': int(args['--min-persisted']),
+            'min_visible': float(args['--min-visible']) * (60 * 60 * 24),
+            'keep_tokens': bool(args['--keep-tokens']),
+            'include': include,
+            'exclude': exclude}
 
-    return min_persisted, min_visible, include, exclude, keep_tokens
+
+def _persistence2stats(*args, keep_tokens, **kwargs):
+    docs = persistence2stats(*args, **kwargs)
+    if not keep_tokens:
+        docs = drop_tokens(docs)
+
+    yield from docs
 
 
-def run(paths, min_persisted, min_visible, include, exclude, keep_tokens,
-        threads, output_dir, compression, verbose):
-
-    def process_path(path):
-        f = files.reader(path)
-        rev_docs = persistence2stats((normalize_doc(json.loads(line))
-                                      for line in f),
-                                     min_persisted, min_visible, include,
-                                     exclude, verbose=False)
-
-        if not keep_tokens:
-            rev_docs = drop_tokens(rev_docs)
-
-        if output_dir == None:
-            yield from rev_docs
-        else:
-            new_path = files.output_dir_path(path, output_dir, compression)
-            writer = files.writer(new_path)
-            for rev_doc in rev_docs:
-                json.dump(rev_doc, writer)
-                writer.write("\n")
-
-    for rev_doc in para.map(process_path, paths, mappers=threads):
-        json.dump(rev_doc, sys.stdout)
-        sys.stdout.write("\n")
+def drop_tokens(rev_docs):
+    for rev_doc in rev_docs:
+        rev_doc['persistence'].pop('tokens', None)
+        yield rev_doc
 
 
 def persistence2stats(rev_docs, min_persisted=5, min_visible=1209600,
@@ -185,6 +120,8 @@ def persistence2stats(rev_docs, min_persisted=5, min_visible=1209600,
         A generator of rev_docs with a 'persistence' field containing
         statistics about individual tokens.
     """
+    rev_docs = mwxml.utilities.normalize(rev_docs)
+
     min_persisted = int(min_persisted)
     min_visible = int(min_visible)
     include = include if include is not None else lambda t: True
@@ -208,6 +145,7 @@ def persistence2stats(rev_docs, min_persisted=5, min_visible=1209600,
         for token_doc in filtered_docs:
             if verbose:
                 sys.stderr.write(".")
+                sys.stderr.flush()
 
             stats_doc['tokens_added'] += 1
             stats_doc['sum_log_persisted'] += log(token_doc['persisted'] + 1)
@@ -242,7 +180,17 @@ def persistence2stats(rev_docs, min_persisted=5, min_visible=1209600,
 
         if verbose:
             sys.stderr.write("\n")
+            sys.stderr.flush()
 
         rev_doc['persistence'].update(stats_doc)
 
         yield rev_doc
+
+
+streamer = mwcli.Streamer(
+    __doc__,
+    __name__,
+    _persistence2stats,
+    process_args
+)
+main = streamer.main

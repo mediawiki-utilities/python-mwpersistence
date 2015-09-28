@@ -2,17 +2,15 @@ r"""
 ``$ mwpersistence diffs2persistence -h``
 ::
 
-    Generates token persistence statistics by reading revision diffs and applying
-    them to a token list.
+    Generates token persistence information from JSON revision documents
+    annotated with diff information (see `mwdiffs dump2diffs|revdocs2diffs`).
 
-    Expects to get revision diff JSON blobs that are partitioned by
-    page_id and otherwise sorted chronologically.  Outputs token persistence
-    statistics JSON blobs.  The output of this script is guaranteed to be
-    paritioned by rev_id, but not
+    This utility expects to be fed revision documents in as a page-partitioned
+    chronological sequence so that diffs can be computed upon in order.
 
-    Uses a 'window' to limit memory usage.  New revisions enter the head of the
-    window and old revisions fall off the tail.  Stats are generated at the
-    tail of the window.
+    This utility uses a processing 'window' to limit memory usage.  New
+    revisions enter the head of the window and old revisions fall off the tail.
+    Stats are generated at the tail of the window.
 
     ::
                                window
@@ -26,15 +24,16 @@ r"""
 
     Usage:
         diffs2persistence (-h|--help)
-        diffs2persistence [<diff-file>...] --sunset=<date>
+        diffs2persistence [<input-file>...] --sunset=<date>
                           [--window=<revs>] [--revert-radius=<revs>]
                           [--keep-diff] [--threads=<num>] [--output=<path>]
-                          [--compress=<type>] [--verbose]
+                          [--compress=<type>] [--verbose] [--debug]
 
     Options:
         -h|--help               Prints this documentation
-        <diff-file>             The path to a set of revision JSON blobs with a
-                                'diff' field to process.
+        <input-file>            The path a file containing page-partitioned
+                                JSON revision documents with a 'diff' field to
+                                process.
         --sunset=<date>         The date of the database dump we are generating
                                 from.  This is used to apply a 'time visible'
                                 statistic.  Expects %Y-%m-%dT%H:%M:%SZ".
@@ -54,101 +53,48 @@ r"""
         --compress=<type>       If set, output written to the output-dir will
                                 be compressed in this format. [default: bz2]
         --verbose               Print dots and stuff to stderr
+        --debug                 Print debug logging to stderr.
 """
-import json
 import logging
 import sys
 import time
 from collections import deque
 from itertools import groupby
-from multiprocessing import cpu_count
 
-import docopt
-import para
+import mwcli
+import mwxml.utilities
 from more_itertools import peekable
 from mwtypes import Timestamp
 
-from .. import files
 from ..state import DiffState
-from .util import drop_diff, normalize_doc
 
 logger = logging.getLogger(__name__)
 
 
-def main(argv=None):
-    args = docopt.docopt(__doc__, argv=argv)
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s %(levelname)s:%(name)s -- %(message)s'
-    )
-
-    if len(args['<diff-file>']) == 0:
-        paths = [sys.stdin]
-    else:
-        paths = [files.normalize_path(path) for path in args['<diff-file>']]
-
-    window_size, revert_radius, sunset, keep_diff = process_args(args)
-
-    if args['--threads'] == "<cpu_count>":
-        threads = cpu_count()
-    else:
-        threads = int(args['--threads'])
-
-    if args['--output'] == "<stdout>":
-        output_dir = None
-        logger.info("Writing output to stdout.  Ignoring 'compress' setting.")
-        compression = None
-    else:
-        output_dir = files.normalize_dir(args['--output'])
-        compression = args['--compress']
-
-    verbose = bool(args['--verbose'])
-
-    run(paths, window_size, revert_radius, sunset, keep_diff, threads,
-        output_dir, compression, verbose)
-
-
 def process_args(args):
-    window_size = int(args['--window'])
-
-    revert_radius = int(args['--revert-radius'])
-
-    if args['--sunset'] == "<now>":
-        sunset = Timestamp(time.time())
-    else:
-        sunset = Timestamp(args['--sunset'])
-
-    keep_diff = bool(args['--keep-diff'])
-
-    return window_size, revert_radius, sunset, keep_diff
+    return {'window_size': int(args['--window']),
+            'revert_radius': int(args['--revert-radius']),
+            'sunset': Timestamp(args['--sunset'])
+                      if args['--sunset'] != "<now>"
+                      else Timestamp(time.time()),
+            'keep_diff': bool(args['--keep-diff'])}
 
 
-def run(paths, window_size, revert_radius, sunset, keep_diff, threads,
-        output_dir, compression, verbose):
+def _diffs2persistence(*args, keep_diff=False, **kwargs):
+    keep_diff = bool(keep_diff)
 
-    def process_path(path):
-        f = files.reader(path)
-        rev_docs = diffs2persistence((normalize_doc(json.loads(line))
-                                      for line in f),
-                                     window_size, revert_radius,
-                                     sunset, verbose)
+    docs = diffs2persistence(*args, **kwargs)
 
-        if not keep_diff:
-            rev_docs = drop_diff(rev_docs)
+    if not keep_diff:
+        docs = drop_diff(docs)
 
-        if output_dir == None:
-            yield from rev_docs
-        else:
-            new_path = files.output_dir_path(path, output_dir, compression)
-            writer = files.writer(new_path)
-            for rev_doc in rev_docs:
-                json.dump(rev_doc, writer)
-                writer.write("\n")
+    yield from docs
 
-    for rev_doc in para.map(process_path, paths, mappers=threads):
-        json.dump(rev_doc, sys.stdout)
-        sys.stdout.write("\n")
+
+def drop_diff(rev_docs):
+    for rev_doc in rev_docs:
+        rev_doc.pop('diff', None)
+        yield rev_doc
 
 
 def diffs2persistence(rev_docs, window_size=50, revert_radius=15, sunset=None,
@@ -172,6 +118,9 @@ def diffs2persistence(rev_docs, window_size=50, revert_radius=15, sunset=None,
             The date of the database dump we are generating from.  This is
             used to apply a 'time visible' statistic.  If not set, now() will
             be assumed.
+        keep_diff : `bool`
+            Do not drop the `diff` field from the revision document after
+            processing is complete.
         verbose : `bool`
             Prints out dots and stuff to stderr
 
@@ -179,6 +128,7 @@ def diffs2persistence(rev_docs, window_size=50, revert_radius=15, sunset=None,
         A generator of rev_docs with a 'persistence' field containing
         statistics about individual tokens.
     """
+    rev_docs = mwxml.utilities.normalize(rev_docs)
     window_size = int(window_size)
     revert_radius = int(revert_radius)
     sunset = Timestamp(sunset) if sunset is not None \
@@ -273,3 +223,11 @@ def generate_token_docs(rev_doc, tokens_added):
                                       for u, _ in token.revisions),
             "seconds_visible": sum(sv for _, sv in token.revisions)
         }
+
+streamer = mwcli.Streamer(
+    __doc__,
+    __name__,
+    _diffs2persistence,
+    process_args
+)
+main = streamer.main

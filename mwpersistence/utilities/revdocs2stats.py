@@ -1,24 +1,25 @@
 r"""
-``$ mwpersistence dump2stats -h``
+``$ mwpersistence revdocs2stats -h``
 ::
 
-    Full pipeline from MediaWiki XML dumps to content persistence statistics.
+    Full pipeline from JSON revision documents to content persistence
+    statistics.
 
     Usage:
-        dump2stats (-h|--help)
-        dump2stats [<input-file>...] --config=<path> --sunset=<date>
-                   [--namespaces=<ids>] [--timeout=<secs>]
-                   [--window=<revs>] [--revert-radius=<revs>]
-                   [--min-persisted=<num>] [--min-visible=<days>]
-                   [--include=<regex>] [--exclude=<regex>]
-                   [--keep-text] [--keep-diff] [--keep-tokens]
-                   [--threads=<num>] [--output=<path>] [--compress=<type>]
-                   [--verbose] [--debug]
+        revdocs2stats (-h|--help)
+        revdocs2stats [<input-file>...] --config=<path> --sunset=<date>
+                      [--namespaces=<ids>] [--timeout=<secs>]
+                      [--window=<revs>] [--revert-radius=<revs>]
+                      [--min-persisted=<num>] [--min-visible=<days>]
+                      [--include=<regex>] [--exclude=<regex>]
+                      [--keep-text] [--keep-diff] [--keep-tokens]
+                      [--threads=<num>] [--output=<path>] [--compress=<type>]
+                      [--verbose] [--debug]
 
     Options:
         -h|--help               Print this documentation
-        <input-file>            The path to a MediaWiki XML Dump file
-                                [default: <stdin>]
+        <input-file>            The path to a file of page-partitioned JSON
+                                revision documents. [default: <stdin>]
         --config=<path>         The path to a deltas DiffEngine configuration
         --namespaces=<ids>      A comma separated list of namespace IDs to be
                                 considered [default: <all>]
@@ -63,18 +64,44 @@ r"""
 import logging
 
 import mwcli
-import mwxml
+import mwxml.utilities
 
-from .revdocs2stats import process_args as revdocs2stats_args
-from .revdocs2stats import revdocs2stats
+import mwdiffs.utilities
+
+from .diffs2persistence import process_args as diffs2persistence_args
+from .diffs2persistence import diffs2persistence, drop_diff
+from .persistence2stats import process_args as persistence2stats_args
+from .persistence2stats import drop_tokens, persistence2stats
 
 logger = logging.getLogger(__name__)
 
 
-def dump2stats(dump, *args, **kwargs):
+def process_args(args):
+    kwargs = mwdiffs.utilities.dump2diffs_args(args)
+    kwargs.update(diffs2persistence_args(args))
+    kwargs.update(persistence2stats_args(args))
+    return kwargs
 
-    rev_docs = mwxml.utilities.dump2revdocs(dump)
-    stats_docs = revdocs2stats(rev_docs, *args, **kwargs)
+
+def revdocs2stats(rev_docs, diff_engine, namespaces, timeout, window_size,
+                  revert_radius, sunset, min_persisted, min_visible,
+                  include, exclude, keep_text=False, keep_diff=False,
+                  keep_tokens=False, verbose=False):
+
+    diff_docs = mwdiffs.utilities.revdocs2diffs(rev_docs, diff_engine,
+                                                namespaces, timeout)
+    if not keep_text:
+        diff_docs = mwdiffs.utilities.drop_text(diff_docs)
+
+    persistence_docs = diffs2persistence(
+        diff_docs, window_size, revert_radius, sunset, verbose=verbose)
+    if not keep_diff:
+        persistence_docs = drop_diff(persistence_docs)
+
+    stats_docs = persistence2stats(
+        persistence_docs, min_persisted, min_visible, include, exclude)
+    if not keep_tokens:
+        stats_docs = drop_tokens(stats_docs)
 
     yield from stats_docs
 
@@ -82,8 +109,7 @@ def dump2stats(dump, *args, **kwargs):
 streamer = mwcli.Streamer(
     __doc__,
     __name__,
-    dump2stats,
-    revdocs2stats_args,
-    file_reader=mwxml.Dump.from_file
+    revdocs2stats,
+    process_args
 )
 main = streamer.main
