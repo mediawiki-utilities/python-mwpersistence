@@ -1,4 +1,6 @@
 mwreverts
 mwtypes
+mwcli
+mwxml
 deltas
 para
