@@ -1,8 +1,10 @@
 Processing functions
 ====================
 
-.. autofunction:: mwpersistence.dump2diffs
+.. autofunction:: mwpersistence.utilities.diffs2persistence
 
-.. autofunction:: mwpersistence.diffs2persistence
+.. autofunction:: mwpersistence.utilities.persistence2stats
 
-.. autofunction:: mwpersistence.persistence2stats
+.. autofunction:: mwpersistence.utilities.dump2stats
+
+.. autofunction:: mwpersistence.utilities.revdocs2stats
