@@ -207,8 +207,7 @@ class DiffState:
                 current_version.tokens, _, _ = transition
 
         # Record persistence
-        for t in current_version.tokens:
-            t.persist(revision)
+        persist_revision_once(current_version.tokens, revision)
 
         # Update last version
         self.last = current_version
@@ -217,6 +216,17 @@ class DiffState:
         return transition
 
 
+def persist_revision_once(tokens, revision):
+    """
+    This function makes sure that a revision is only marked as persisting
+    for a token once.  This is important since some diff algorithms allow
+    tokens to be copied more than once in a revision.  The id(token) should
+    unique to the in-memory representation of any object, so we use that as
+    unique token instance identifier.
+    """
+    token_map = {id(token):token for token in tokens}
+    for token in token_map.values():
+        token.persist(revision)
 
 
 def apply_operations(operations, a, b):

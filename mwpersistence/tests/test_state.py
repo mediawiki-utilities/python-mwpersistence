@@ -64,3 +64,17 @@ def test_diff_state_incrementally():
 
     eq_(first_added[4], "red")
     eq_(first_added[4].revisions, [0, 2, 3])
+
+
+def test_diff_copy_revisions():
+
+    state = DiffState(deltas.SegmentMatcher(), revert_radius=15)
+
+    tokens, added, removed = state.update("Apples are red.", revision=0)
+
+    tokens, added, removed = state.update("Apples are red. Apples are red.",
+                                          revision=1)
+
+    eq_(len(added), 1)
+    eq_(tokens[0], "Apples")
+    eq_(tokens[0].revisions, [0, 1])
