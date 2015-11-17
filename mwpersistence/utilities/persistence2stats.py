@@ -8,36 +8,36 @@ r"""
     Usage:
         persistence2stats (-h | --help)
         persistence2stats [<input-file>...] [--min-persisted=<num>]
-                          [--min-visible=<days>] [--include=<regex>]
+                          [--min-visible=<hours>] [--include=<regex>]
                           [--exclude=<regex>] [--keep-tokens] [--threads=<num>]
                           [--output=<path>] [--compress=<type>] [--verbose]
                           [--debug]
 
     Options:
-        -h --help              Print this documentation
-        <input-file>           The path to a file containing persistence data.
-                               [default: <stdin>]
-        --min-persisted=<num>  The minimum number of revisions a token must
-                               survive before being considered "persisted"
-                               [default: 5]
-        --min-visible=<days>   The minimum amount of time a token must survive
-                               before being considered "persisted" (in days)
-                               [default: 14]
-        --include=<regex>      A regex matching tokens to include (case
-                               insensitive) [default: <all>]
-        --exclude=<regex>      A regex matching tokens to exclude (case
-                               insensitive) [default: <none>]
-        --keep-tokens          Do not drop 'tokens' field data from the JSON
-                               document.
-        --threads=<num>        If a collection of files are provided, how many
-                               processor threads should be prepare?
-                               [default: <cpu_count>]
-        --output=<path>        Write output to a directory with one output file
-                               per input path.  [default: <stdout>]
-        --compress=<type>      If set, output written to the output-dir will be
-                               compressed in this format. [default: bz2]
-        --verbose              Print out progress information
-        --debug                Print debug logging to stderr.
+        -h --help               Print this documentation
+        <input-file>            The path to a file containing persistence data.
+                                [default: <stdin>]
+        --min-persisted=<revs>  The minimum number of revisions a token must
+                                survive before being considered "persisted"
+                                [default: 5]
+        --min-visible=<hours>   The minimum amount of time a token must survive
+                                before being considered "persisted" (in hours)
+                                [default: 10]
+        --include=<regex>       A regex matching tokens to include (case
+                                insensitive) [default: <all>]
+        --exclude=<regex>       A regex matching tokens to exclude (case
+                                insensitive) [default: <none>]
+        --keep-tokens           Do not drop 'tokens' field data from the JSON
+                                document.
+        --threads=<num>         If a collection of files are provided, how many
+                                processor threads should be prepare?
+                                [default: <cpu_count>]
+        --output=<path>         Write output to a directory with one output
+                                file per input path.  [default: <stdout>]
+        --compress=<type>       If set, output written to the output-dir will
+                                be compressed in this format. [default: bz2]
+        --verbose               Print out progress information
+        --debug                 Print debug logging to stderr.
 """
 import logging
 import re
@@ -65,7 +65,7 @@ def process_args(args):
         exclude = lambda t: bool(exclude_re.search(t))
 
     return {'min_persisted': int(args['--min-persisted']),
-            'min_visible': float(args['--min-visible']) * (60 * 60 * 24),
+            'min_visible': float(args['--min-visible']) * (60 * 60),
             'keep_tokens': bool(args['--keep-tokens']),
             'include': include,
             'exclude': exclude}
