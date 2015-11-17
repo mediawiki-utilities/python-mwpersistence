@@ -56,13 +56,13 @@ def process_args(args):
         include = None
     else:
         include_re = re.compile(args['--include'], re.UNICODE | re.I)
-        include = lambda t: bool(include_re.search(t))
+        include = lambda t: bool(include_re.match(t))
 
     if args['--exclude'] == "<none>":
         exclude = None
     else:
         exclude_re = re.compile(args['--exclude'], re.UNICODE | re.I)
-        exclude = lambda t: bool(exclude_re.search(t))
+        exclude = lambda t: bool(exclude_re.match(t))
 
     return {'min_persisted': int(args['--min-persisted']),
             'min_visible': float(args['--min-visible']) * (60 * 60),
